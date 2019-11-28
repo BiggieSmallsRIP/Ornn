@@ -87,6 +87,7 @@ namespace Spells
 IGameObject* OrnnQPillar = nullptr;
 IGameObject* GoatObject = nullptr;
 
+
 auto get_best_e_position(IGameObject* OrnnTarget)
 {
 	auto PlayerPos = g_LocalPlayer->Position();
@@ -136,18 +137,20 @@ auto get_best_e_position(IGameObject* OrnnTarget)
 		return BestPos;
 	}
 }
+
 // Tracking Ornn Ult
 void OnCreateObject(IGameObject* Object)
 {
-	if (!Object->IsValid())
+	if (Object && !Object->IsValid())
 		return;
 
 	auto ObjectName = Object->Name();
-	if (ObjectName.find("OrnnRWave") != std::string::npos)
+	if (strstr(Object->Name().c_str(), "OrnnRWave"))
 	{
 		GoatObject = Object;
 	}
-	if (ObjectName.find("OrnnQPillar") != std::string::npos)
+
+	if (strstr(Object->Name().c_str(), "OrnnQPillar"))
 	{
 		OrnnQPillar = Object;
 	}
@@ -330,7 +333,7 @@ void ComboLogic()
 				if (Target->Distance(get_best_e_position(Target)) < 280)
 					Spells::E->Cast(get_best_e_position(Target));
 
-			if (OrnnQPillar != nullptr && Target->Distance(OrnnQPillar->Position()) <= 280.f)
+			if (Target && OrnnQPillar != nullptr && Target->Distance(OrnnQPillar->Position()) <= 280.f)
 				Spells::E->Cast(Target, HitChance::VeryHigh);
 		}
 
@@ -647,7 +650,7 @@ PLUGIN_API bool OnLoadSDK(IPluginsSDK* plugin_sdk)
 	EventHandler<Events::OnProcessSpellCast>::AddEventHandler(OnProcessSpell);
 
 	g_Common->ChatPrint("<font color='#FFC300'>Ornn Loaded!</font>");
-	g_Common->Log("Cho'Gath plugin loaded.");
+	g_Common->Log("Ornn plugin loaded.");
 
 	return true;
 }
@@ -655,7 +658,6 @@ PLUGIN_API bool OnLoadSDK(IPluginsSDK* plugin_sdk)
 PLUGIN_API void OnUnloadSDK()
 {
 	Menu::MenuInstance->Remove();
-	EventHandler<Events::GameUpdate>::RemoveEventHandler(OnGameUpdate);
 	EventHandler<Events::GameUpdate>::RemoveEventHandler(OnGameUpdate);
 	//EventHandler<Events::OnAfterAttackOrbwalker>::RemoveEventHandler(OnAfterAttack);
 	EventHandler<Events::OnHudDraw>::RemoveEventHandler(OnHudDraw);
