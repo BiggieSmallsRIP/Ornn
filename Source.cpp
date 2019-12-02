@@ -84,16 +84,15 @@ namespace Spells
 	std::shared_ptr<ISpell> R = nullptr;
 	std::shared_ptr<ISpell> R2 = nullptr;
 }
-IGameObject* OrnnQPillar = nullptr;
-IGameObject* GoatObject = nullptr;
 
+std::map<float, IGameObject*> OrnObjs;
 
 auto get_best_e_position(IGameObject* OrnnTarget)
 {
 	auto PlayerPos = g_LocalPlayer->Position();
 	const auto ERange = Spells::E->Range();
 
-	if (OrnnTarget && OrnnTarget->IsValidTarget() && OrnnTarget->IsVisibleOnScreen())
+	if (OrnnTarget && OrnnTarget->IsValidTarget())
 	{
 		auto Deg2Rad = [](auto Deg) { return Deg * 0.01745329251994329575; };
 		auto EnemyPos = OrnnTarget->Position();
@@ -101,11 +100,10 @@ auto get_best_e_position(IGameObject* OrnnTarget)
 
 		std::vector<Vector> PossiblePoints;
 
-	
-       for (auto i = 0u; i < 24; i++)
-        {
-            PossiblePoints.push_back(PlayerPos + Delta.Rotated(Deg2Rad(15.f * i)));
-        }
+		for (auto i = 0u; i < 24; i++)
+		{
+			PossiblePoints.push_back(PlayerPos + Delta.Rotated(Deg2Rad(15.f * i)));
+		}
 		std::vector<Vector> possible_wall_points;
 
 		for (auto& p : PossiblePoints)
@@ -125,7 +123,7 @@ auto get_best_e_position(IGameObject* OrnnTarget)
 		for (auto& p : possible_wall_points)
 		{
 			IGameObject* point = nullptr;
-			const auto Prediction = g_Common->GetPrediction(OrnnTarget, 750, 0.35 , 150, 1400, kCollidesWithWalls, p);
+			const auto Prediction = g_Common->GetPrediction(OrnnTarget, 750, 0.35, 150, 1400, kCollidesWithNothing, p);
 			if (BestPos == 0 &&
 				Prediction.Hitchance > HitChance::Medium ||
 				Prediction.Hitchance >= HitChance::High &&
@@ -139,21 +137,47 @@ auto get_best_e_position(IGameObject* OrnnTarget)
 }
 
 // Tracking Ornn Ult
-void OnCreateObject(IGameObject* Object)
+void OnCreateObject(IGameObject* unit)
 {
-	if (Object && !Object->IsValid())
-		return;
-
-	auto ObjectName = Object->Name();
-	if (strstr(Object->Name().c_str(), "OrnnRWave"))
-	{
-		GoatObject = Object;
+	// - my method of temporarily storing important objects without OnDelete
+	if (unit != nullptr && strstr(unit->Name().c_str(), "OrnnRWave")) {
+		// - storing game time into map
+		OrnObjs[g_Common->Time()] = unit;
 	}
 
-	if (strstr(Object->Name().c_str(), "OrnnQPillar"))
-	{
-		OrnnQPillar = Object;
+	if (unit != nullptr && strstr(unit->Name().c_str(), "OrnnQPillar")) {
+		// - storing game time into map
+		OrnObjs[g_Common->Time()] = unit;
 	}
+}
+//ornn R object
+IGameObject* orn_r()
+{
+	for (auto o : OrnObjs) {
+		auto obj = o.second;
+
+		if (strstr(obj->Name().c_str(), "OrnnRWave")) {
+			return obj;
+		}
+	}
+
+	// - if nothing is found in the map
+	return nullptr;
+}
+
+//ornn  Q object
+IGameObject* orn_q()
+{
+	for (auto o : OrnObjs) {
+		auto obj = o.second;
+
+		if (strstr(obj->Name().c_str(), "OrnnQPillar")) {
+			return obj;
+		}
+	}
+
+	// - if nothing is found in the map
+	return nullptr;
 }
 //number of  enemies in Range
 int CountEnemiesInRange(const Vector& Position, const float Range)
@@ -178,13 +202,14 @@ void KillstealLogic()
 	const auto Enemies = g_ObjectManager->GetChampions(false);
 	for (auto Enemy : Enemies)
 	{
-		if (Menu::Killsteal::UseR->GetBool() && Spells::R->IsReady() && Enemy->Distance(g_LocalPlayer->Position()) >= 300 && Enemy->IsValidTarget(Spells::R->Range()) && !Enemy->IsInvulnerable() && !Enemy->HasBuff("KayleR") && !Enemy->HasBuff("UndyingRage") && !g_LocalPlayer->HasBuff("ornnrrecastmanager"))
+		if (Menu::Killsteal::UseR->GetBool() && Spells::R->IsReady() && Enemy->Distance(g_LocalPlayer->Position()) >= 300 && Enemy->IsValidTarget(Spells::R->Range())
+			&& !Enemy->IsInvulnerable() && !Enemy->HasBuff("KayleR") && !Enemy->HasBuff("UndyingRage") && !Enemy->HasBuff("ChronoShift") && !g_LocalPlayer->HasBuff("ornnrrecastmanager"))
 		{
 			auto damage = g_Common->CalculateDamageOnUnit(g_LocalPlayer, Enemy, DamageType::Magical, std::vector<double> {125, 175, 225}[Spells::R->Level()
 				- 1] + (0.2 * g_LocalPlayer->FlatMagicDamageMod()));
 
 			if (damage >= Enemy->RealHealth(false, true))
-				Spells::R->Cast(Enemy, HitChance::VeryHigh);
+				Spells::R->Cast(Enemy, HitChance::High);
 		}
 
 		if (Menu::Killsteal::UseQ->GetBool() && Spells::Q->IsReady() && Enemy->IsValidTarget(Spells::Q->Range()))
@@ -192,7 +217,7 @@ void KillstealLogic()
 			auto QDamage = g_Common->CalculateDamageOnUnit(g_LocalPlayer, Enemy, DamageType::Physical, std::vector<double> {20, 34, 70, 95, 120}[Spells::Q->Level()
 				- 1] + 1.1 * g_LocalPlayer->TotalAttackDamage());
 			if (QDamage >= Enemy->RealHealth(true, false))
-				Spells::Q->Cast(Enemy, HitChance::VeryHigh);
+				Spells::Q->Cast(Enemy, HitChance::High);
 		}
 
 		if (Menu::Killsteal::UseE->GetBool() && Spells::E->IsReady() && Enemy->IsValidTarget(Spells::E->Range()))
@@ -200,7 +225,7 @@ void KillstealLogic()
 			auto EDamage = g_Common->CalculateDamageOnUnit(g_LocalPlayer, Enemy, DamageType::Physical, std::vector<double> {80, 125, 170, 215, 260}[Spells::E->Level()
 				- 1] + (0.4 * g_LocalPlayer->BonusArmor()) + (0.4 * g_LocalPlayer->BonusSpellBlock())); ///dobule check this 40% bonus MR scaling later
 			if (EDamage >= Enemy->RealHealth(false, true))
-				Spells::E->Cast(Enemy, HitChance::VeryHigh);
+				Spells::E->Cast(Enemy, HitChance::High);
 		}
 	}
 }
@@ -213,7 +238,7 @@ void OnProcessSpell(IGameObject* sender, OnProcessSpellEventArgs* args)
 		// targeted spells
 		if (args->Target == g_LocalPlayer)
 		{
-			if (sender->HasBuff("PowerFist") ||                                     
+			if (sender->HasBuff("PowerFist") ||
 				sender->HasBuff("LeonaShieldOfDaybreak") ||
 				sender->HasBuff("RenektonPreExecute") ||
 				sender->HasBuff("GoldCardPreAttack") ||
@@ -303,6 +328,21 @@ void ComboLogic()
 {
 	if (Menu::Combo::Enabled->GetBool())
 	{
+		// R1 intial ult         ##  for some reason not casting at max range
+		if (Menu::Combo::UseR->GetBool() && Spells::R->IsReady())
+		{
+				if (Spells::R->IsReady())
+
+				{
+					auto Target = g_Common->GetTarget(Spells::R->Range(), DamageType::Magical);
+					if (Target && Target->IsValidTarget() && Target->IsAIHero() && g_LocalPlayer->Distance(Target) < 800)
+					{
+						if (CountEnemiesInRange(Target->Position(), 340.f) >= Menu::Combo::Rmin->GetInt() && !g_LocalPlayer->HasBuff("ornnrrecastmanager") && g_LocalPlayer->HealthPercent() >= 25.f) 
+							Spells::R->Cast(Target, HitChance::VeryHigh);
+					}
+				}
+		}
+
 		if (Menu::Combo::UseQ->GetBool() && Spells::Q->IsReady() && !g_LocalPlayer->HasBuff("ornnrrecastmanager"))
 		{
 			auto Target = g_Common->GetTarget(Spells::Q->Range(), DamageType::Physical);
@@ -319,7 +359,7 @@ void ComboLogic()
 			if (Target && Target->IsValidTarget() && !Target->HasBuff("OrnnVulnerableDebuff"))
 			{
 				if (Target->Distance(g_LocalPlayer) <= 300.f)
-					Spells::W->Cast(Target, HitChance::VeryHigh);
+					Spells::W->Cast(Target, HitChance::High);
 			}
 		}
 
@@ -333,31 +373,10 @@ void ComboLogic()
 				if (Target->Distance(get_best_e_position(Target)) < 280)
 					Spells::E->Cast(get_best_e_position(Target));
 
-			if (Target && OrnnQPillar != nullptr && Target->Distance(OrnnQPillar->Position()) <= 280.f)
-				Spells::E->Cast(Target, HitChance::VeryHigh);
-		}
-
-		// R1 intial ult         ##  for some reason not casting at max range
-		if (Menu::Combo::UseR->GetBool() && Spells::R->IsReady())
-		{
-			const auto Allies = g_ObjectManager->GetChampions(true);
-			for (auto Ally : Allies)
-			{
-				auto Target = g_Common->GetTarget(Spells::R->Range(), DamageType::Magical);
-				if (Target && Target->IsValidTarget() && Target->IsAIHero() && Ally->Distance(Target) < 800)
-				{
-					if (CountEnemiesInRange(Target->Position(), 340.f) >= Menu::Misc::AutoR->GetInt() && !g_LocalPlayer->HasBuff("ornnrrecastmanager") && g_LocalPlayer->HealthPercent() >= 25.f) // health check so we can recast it before we die.
-						Spells::R->Cast(Target, HitChance::VeryHigh);
-				}
-
-				//// R2 re-cast again to max enemy        ### instead of Rmin->Int , get dynamic best position so we never fail if below # enemies to recast ?
-
-				//if (g_LocalPlayer->HasBuff("ornnrrecastmanager") && GoatObject->IsInRange(150.f) && CountEnemiesInRange(Target->Position(), Spells::R2->Range()) >= Menu::Combo::Rmin->GetInt())
-				//	Spells::R2->Cast(Target, HitChance::High);
-			}
+			if (Target && orn_q() && Target->Distance(orn_q()->Position()) <= 280.f)
+				Spells::E->Cast(orn_q()->Position());
 		}
 	}
-		
 }
 
 // harass
@@ -402,8 +421,8 @@ void HarassLogic()
 					if (Target->Distance(get_best_e_position(Target)) < 300)
 						Spells::E->Cast(get_best_e_position(Target));
 
-				if (OrnnQPillar != nullptr && Target->Distance(OrnnQPillar->Position()) <= 280.f)
-					Spells::E->Cast(Target, HitChance::VeryHigh);
+				if (orn_q() != nullptr && Target && Target->Distance(orn_q()->Position()) <= 280.f)
+					Spells::E->Cast(Target->Position());
 			}
 		}
 	}
@@ -429,7 +448,7 @@ void MiscLogic()
 						Spells::Q->Cast(pred.CastPosition);
 			}
 		}
-		 
+
 		if (Spells::Q->IsReady() && !g_LocalPlayer->HasBuff("ornnrrecastmanager"))
 		{
 			//Cast Q on Channels to hopefully knock them up
@@ -448,9 +467,8 @@ void MiscLogic()
 
 		if (Target && Target->IsValidTarget() && Target->IsAIHero() && CountEnemiesInRange(Target->Position(), Spells::E->Range()) >= Menu::Misc::AutoE->GetInt())
 			if (Target->Distance(get_best_e_position(Target)) < 250)
-				Spells::E->Cast(get_best_e_position(Target));                
+				Spells::E->Cast(get_best_e_position(Target));
 	}
-	
 }
 
 // Lane Clear Logic          ## add E with wall check
@@ -491,19 +509,35 @@ void LaneCLearLogic()
 	}
 }
 
-
 void OnGameUpdate()
 {
 	if (g_LocalPlayer->IsDead())
 		return;
+	// Auto R
+	if (Spells::R->IsReady())
 
+	{
+		auto Target = g_Common->GetTarget(Spells::R->Range(), DamageType::Magical);
+		if (Target != nullptr && Target && Target->IsValidTarget() && Target->IsAIHero() && g_LocalPlayer->Distance(Target) < 1200)
+		{
+			if (CountEnemiesInRange(Target->Position(), 340.f) >= Menu::Misc::AutoR->GetInt() && !g_LocalPlayer->HasBuff("ornnrrecastmanager") && g_LocalPlayer->HealthPercent() >= 25.f) // health check so we can recast it before we die.
+				Spells::R->Cast(Target, HitChance::VeryHigh);
+		}
+
+		// R2 re-cast again to max enemy  
+
+		if (Target && Target != nullptr && orn_r() != nullptr && g_LocalPlayer->HasBuff("ornnrrecastmanager") && orn_r()->IsInRange(250.f) && CountEnemiesInRange(Target->Position(), 340.f) >= Menu::Misc::AutoR->GetInt())
+			Spells::R2->Cast(Target->ServerPosition());
+
+		if (Target && Target != nullptr && orn_r() != nullptr && g_LocalPlayer->HasBuff("ornnrrecastmanager") && orn_r()->IsInRange(250.f) && CountEnemiesInRange(Target->Position(), 340.f) >= 1)
+			Spells::R2->Cast(Target->ServerPosition());
+	}
 	// priority for brittle
 	const auto Enemies = g_ObjectManager->GetChampions(false);
 	for (auto Enemy : Enemies)
 	{
 		if (Menu::Misc::Brittle->GetBool() && Enemy && Enemy->IsInRange(300) && Enemy->IsValidTarget() && Enemy->HasBuff("OrnnVulnerableDebuff"))
 			g_Orbwalker->SetOrbwalkingTarget(Enemy);
-
 	}
 	if (Menu::Killsteal::Enabled->GetBool())
 		KillstealLogic();
@@ -520,28 +554,25 @@ void OnGameUpdate()
 	MiscLogic();
 
 
-	// Auto R
-	const auto Allies = g_ObjectManager->GetChampions(true);
-	for (auto Ally : Allies)
-		if (Spells::R->IsReady())
+	{
+		// clear cache
+		for (auto o : OrnObjs) {
+			auto key = o.first;
+			auto obj = o.second;
 
-		{
-			auto Target = g_Common->GetTarget(Spells::R->Range(), DamageType::Magical);
-			if (Target && Target->IsValidTarget() && Target->IsAIHero() && Ally->Distance(Target) < 1200)
-			{
-				if (CountEnemiesInRange(Target->Position(), 340.f) >= Menu::Misc::AutoR->GetInt() && !g_LocalPlayer->HasBuff("ornnrrecastmanager") && g_LocalPlayer->HealthPercent() >= 25.f) // health check so we can recast it before we die.
-					Spells::R->Cast(Target, HitChance::VeryHigh);
+			// - delete null maps
+			if (obj == nullptr || !obj->IsVisible() || !obj->IsValid()) {
+				OrnObjs.erase(key);
+				break;
 			}
 
-			// R2 re-cast again to max enemy        ### instead of Rmin->Int , get dynamic best position so we never fail if below # enemies to recast ?
-
-			if (g_LocalPlayer->HasBuff("ornnrrecastmanager") && GoatObject->IsInRange(250.f) && CountEnemiesInRange(Target->Position(), 340.f) >= Menu::Misc::AutoR->GetInt())
-				Spells::R2->Cast(Target, HitChance::High);
-
-			if (g_LocalPlayer->HasBuff("ornnrrecastmanager") && GoatObject->IsInRange(250.f) && CountEnemiesInRange(Target->Position(), 340.f) >= 1)
-				Spells::R2->Cast(Target, HitChance::High);
-
+			// - fail safe delete after 8 seconds
+			if (g_Common->Time() - key > 7) {
+				OrnObjs.erase(key);
+				break;
+			}
 		}
+	}
 }
 
 // Drawings
@@ -637,7 +668,7 @@ PLUGIN_API bool OnLoadSDK(IPluginsSDK* plugin_sdk)
 
 	// pred hitchance is very good with these weird values
 	Spells::Q->SetSkillshot(0.3f, 50.f, 1600.f, kCollidesWithYasuoWall, kSkillshotLine); // "OrnnQ"
-	Spells::W->SetSkillshot(0.2f, 100.f, 800.f, kCollidesWithNothing, kSkillshotLine); // "OrnnW"               gussing values here
+	Spells::W->SetSkillshot(0.2f, 150.f, 800.f, kCollidesWithNothing, kSkillshotLine); // "OrnnW"               gussing values here
 	Spells::E->SetSkillshot(0.35f, 150.f, 1600.f, kCollidesWithWalls, kSkillshotLine); //"OrnnE"
 	Spells::R->SetSkillshot(0.5f, 340.f, 1250.f, kCollidesWithYasuoWall, kSkillshotLine); // accelerate from 450 to 1250 between 570 ms by eight irregular interval accelerations at 100 acceleration  "OrnnRWave"
 	Spells::R->SetSkillshot(0.5f, 340.f, 1650.f, kCollidesWithYasuoWall, kSkillshotLine); // "OrnnRWave2"
