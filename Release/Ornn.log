@@ -62,8 +62,8 @@ C:\Users\shvui\source\repos\Ornn\SDK\Geometry.h(42): message :             _Ty=C
 C:\Users\shvui\source\repos\Ornn\SDK\Geometry.h(42): message :         ]
      Creating library ..\..\..\..\Desktop\mini\Plugins\Ornn.lib and object ..\..\..\..\Desktop\mini\Plugins\Ornn.exp
   Generating code
-  0 of 620 functions ( 0.0%) were compiled, the rest were copied from previous compilation.
-    0 functions were new in current compilation
-    0 functions had inline decision re-evaluated but remain unchanged
+  Previous IPDB not found, fall back to full compilation.
+C:\Users\shvui\source\repos\Ornn\Ornn\Source.cpp(137): warning C4715: 'get_best_e_position': not all control paths return a value
+  All 620 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
   Finished generating code
   Ornn.vcxproj -> C:\Users\shvui\source\repos\Ornn\Ornn\..\..\..\..\Desktop\mini\Plugins\Ornn.dll
