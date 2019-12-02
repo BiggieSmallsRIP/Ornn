@@ -85,7 +85,9 @@ namespace Spells
 	std::shared_ptr<ISpell> R2 = nullptr;
 }
 
+
 std::map<float, IGameObject*> OrnObjs;
+
 
 auto get_best_e_position(IGameObject* OrnnTarget)
 {
@@ -135,10 +137,10 @@ auto get_best_e_position(IGameObject* OrnnTarget)
 		return BestPos;
 	}
 }
-
 // Tracking Ornn Ult
 void OnCreateObject(IGameObject* unit)
 {
+<<<<<<< HEAD
 	// - my method of temporarily storing important objects without OnDelete
 	if (unit != nullptr && strstr(unit->Name().c_str(), "OrnnRWave")) {
 		// - storing game time into map
@@ -159,6 +161,19 @@ IGameObject* orn_r()
 		if (strstr(obj->Name().c_str(), "OrnnRWave")) {
 			return obj;
 		}
+=======
+	if (!Object->IsValid())
+		return;
+
+	auto ObjectName = Object->Name();
+	if (ObjectName.find("OrnnRWave") != std::string::npos)
+	{
+		GoatObject = Object;
+	}
+	if (ObjectName.find("OrnnQPillar") != std::string::npos)
+	{
+		OrnnQPillar = Object;
+>>>>>>> parent of b1e62dd... 12
 	}
 
 	// - if nothing is found in the map
@@ -373,8 +388,33 @@ void ComboLogic()
 				if (Target->Distance(get_best_e_position(Target)) < 280)
 					Spells::E->Cast(get_best_e_position(Target));
 
+<<<<<<< HEAD
 			if (Target && orn_q() && Target->Distance(orn_q()->Position()) <= 280.f)
 				Spells::E->Cast(orn_q()->Position());
+=======
+			if (OrnnQPillar != nullptr && Target->Distance(OrnnQPillar->Position()) <= 280.f)
+				Spells::E->Cast(Target, HitChance::VeryHigh);
+		}
+
+		// R1 intial ult         ##  for some reason not casting at max range
+		if (Menu::Combo::UseR->GetBool() && Spells::R->IsReady())
+		{
+			const auto Allies = g_ObjectManager->GetChampions(true);
+			for (auto Ally : Allies)
+			{
+				auto Target = g_Common->GetTarget(Spells::R->Range(), DamageType::Magical);
+				if (Target && Target->IsValidTarget() && Target->IsAIHero() && Ally->Distance(Target) < 800)
+				{
+					if (CountEnemiesInRange(Target->Position(), 340.f) >= Menu::Misc::AutoR->GetInt() && !g_LocalPlayer->HasBuff("ornnrrecastmanager") && g_LocalPlayer->HealthPercent() >= 25.f) // health check so we can recast it before we die.
+						Spells::R->Cast(Target, HitChance::VeryHigh);
+				}
+
+				//// R2 re-cast again to max enemy        ### instead of Rmin->Int , get dynamic best position so we never fail if below # enemies to recast ?
+
+				//if (g_LocalPlayer->HasBuff("ornnrrecastmanager") && GoatObject->IsInRange(150.f) && CountEnemiesInRange(Target->Position(), Spells::R2->Range()) >= Menu::Combo::Rmin->GetInt())
+				//	Spells::R2->Cast(Target, HitChance::High);
+			}
+>>>>>>> parent of b1e62dd... 12
 		}
 	}
 }
@@ -681,7 +721,7 @@ PLUGIN_API bool OnLoadSDK(IPluginsSDK* plugin_sdk)
 	EventHandler<Events::OnProcessSpellCast>::AddEventHandler(OnProcessSpell);
 
 	g_Common->ChatPrint("<font color='#FFC300'>Ornn Loaded!</font>");
-	g_Common->Log("Ornn plugin loaded.");
+	g_Common->Log("Cho'Gath plugin loaded.");
 
 	return true;
 }
@@ -689,6 +729,7 @@ PLUGIN_API bool OnLoadSDK(IPluginsSDK* plugin_sdk)
 PLUGIN_API void OnUnloadSDK()
 {
 	Menu::MenuInstance->Remove();
+	EventHandler<Events::GameUpdate>::RemoveEventHandler(OnGameUpdate);
 	EventHandler<Events::GameUpdate>::RemoveEventHandler(OnGameUpdate);
 	//EventHandler<Events::OnAfterAttackOrbwalker>::RemoveEventHandler(OnAfterAttack);
 	EventHandler<Events::OnHudDraw>::RemoveEventHandler(OnHudDraw);
